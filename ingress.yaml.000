@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hass
+  namespace: {{namespace}}
+  annotations:
+    #kubernetes.io/ingress.class: public
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: public
+  tls:
+  - hosts:
+    - hass.anirad.cz
+      secretName: hass-tls-prod
+  rules:
+    - host: "hass.anirad.cz"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hass
+                port:
+                  number: {{hass_port}}

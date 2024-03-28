@@ -1,0 +1,13 @@
+namespace=$(basename $(realpath $(pwd)))
+hass_port="8123"
+mqtt_port="1883"
+psql_port="5432"
+
+appname="HomeAssistant"
+downup="rs/tsdb,deploy/hass,deploy/mqtt"
+backup_tgt="homeassistant"
+
+VARIABLES="namespace hass_port mqtt_port psql_port backup_tgt downup"; export VARIABLES $VARIABLES
+
+
+

@@ -1,0 +1,77 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hass-config
+  namespace: {{namespace}}
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: microk8s-hostpath
+
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: hass
+  name: hass
+  namespace: {{namespace}}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hass
+  template:
+    metadata:
+      labels:
+        app: hass
+    spec:
+      containers:
+        - image: homeassistant/home-assistant:2024.2
+          imagePullPolicy: IfNotPresent
+          name: home-assistant
+          volumeMounts:
+          - mountPath: "/config"
+            name: hass-config
+          ports:
+          - containerPort: {{hass_port}}
+            hostPort: {{hass_port}}
+      volumes:
+        - name: hass-config
+          persistentVolumeClaim:
+            claimName: hass-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hass
+  namespace: {{namespace}}
+spec:
+  type: NodePort
+  selector:
+    app: hass
+  ports:
+    - protocol: TCP
+      port: {{hass_port}}
+      targetPort: {{hass_port}}
+      name: http
+#---
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  name: mqtt
+#  namespace: {{namespace}}
+#spec:
+#  type: NodePort
+#  selector:
+#    app: hass
+#  ports:
+#    - protocol: TCP
+#      port: {{mqtt_port}}
+#      targetPort: {{mqtt_port}}
+#      name: http

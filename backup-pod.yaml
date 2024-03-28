@@ -1,0 +1,103 @@
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: backup-bin
+  namespace: {{namespace}}
+data:
+  backup.sh: |
+    tgtname="{{backup_tgt}}-full-$(date +%F_%H%M%S).tar.xz"
+    srcdir="/mnt/backup/sources"
+    tgtdir="/mnt/backup/target"
+    bsize=$(du -abd0 $srcdir | awk '{print $1;}')
+    echo "Target backup file name is: '$tgtname'"
+    tar -C $srcdir -cf - . | pv -s ${bsize} | xz -zcT0 > $tgtdir/$tgtname
+    echo "Backup file '$tgtname' has been created."
+
+  restore.sh: |
+    srcdir="/mnt/backup/target"
+    tgtdir="/mnt/backup/sources"
+    
+    cd $srcdir
+    echo "Select backup file (by a number):"; 
+    cnt=1; for c in $(ls); do if [ -f $c ]; then echo "  $cnt => $c"; cnt=$((cnt+1)); fi; done
+    read -p "Selected file: " slf
+    
+    if [ -z "$slf" ]; then
+      echo "File is not selected. "
+      echo "Exitting"
+      exit 223
+    fi
+
+    selected=""
+    cnt=1; 
+    for c in $(ls); do if [ -f $c ]; then
+      if [ "$cnt" == "$slf" ]; then
+        selected=$c
+        break
+      fi
+      cnt=$((cnt+1))
+    fi; done
+
+    if [ -z "$selected" ]; then
+      echo "Item '$slf' does not exist in the list."
+      echo "Exiting"
+      exit 223
+    fi
+
+    echo ""
+    echo "Selected file is '$selected'. "
+    echo ""
+    echo "After continue, all current data will be deleted and will be replaced with the backup."
+    read -p "Really to continue? (y/...): " cntx
+
+    [ "$cntx" == "y" ] || exit 2231
+
+    srcname=$selected
+    bsize=$(ls -l $srcdir/$srcname | awk '{print $5;}')
+    
+    cd $tgtdir
+    for c in $(ls); do rm -r $c/*; done
+    pv -s $bsize ${srcdir}/${srcname} | xz -dc | tar -C $tgtdir -x
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: backup
+  namespace: {{namespace}}
+  labels: 
+    app: backup
+spec:
+  containers:
+    - name: tech
+      image: alpine:3.15
+      command: ["/bin/sh", "-c", "apk add mc bash xz bzip2 brotli pv && sleep 3600000"]
+      volumeMounts:
+        - name: hass-config-dir
+          mountPath: /mnt/backup/sources/hass-config-dir
+        - name: hass-database
+          mountPath: /mnt/backup/sources/hass-database
+        - name: mosquitto-data
+          mountPath: /mnt/backup/sources/mosquitto-data
+        - name: backup-dir
+          mountPath: /mnt/backup/target
+        - name: backup-bin
+          mountPath: /bb
+  volumes:
+    - name: hass-config-dir
+      persistentVolumeClaim:
+        claimName: hass-config
+    - name: hass-database
+      persistentVolumeClaim:
+        claimName: hass-database
+    - name: mosquitto-data
+      persistentVolumeClaim:
+        claimName: mosquitto-data
+    - name: backup-dir
+      hostPath:
+        path: /media/data1/backup/{{backup_tgt}}
+    - name: backup-bin
+      configMap:
+        name: backup-bin
+

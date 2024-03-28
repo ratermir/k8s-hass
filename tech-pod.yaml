@@ -1,0 +1,29 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: tech
+  labels: 
+    app: tech
+spec:
+      containers:
+      - name: tech
+        image: alpine:3.15
+        command: ["/bin/sh", "-c", "apk add bash iputils mc busybox-extras postgresql-client && sleep 3600000"]
+        volumeMounts:
+        - mountPath: /mnt/homeassistant/config
+          name: homeassistant-config
+        - mountPath: /mnt/hass-database
+          name: hass-database
+        - mountPath: /mnt/mosquitto-data
+          name: mosquitto-data
+      volumes:
+        - name: homeassistant-config
+          persistentVolumeClaim:
+            claimName: homeassistant-config
+        - name: hass-database
+          persistentVolumeClaim:
+            claimName: hass-database
+        - name: mosquitto-data
+          persistentVolumeClaim:
+            claimName: mosquitto-data
